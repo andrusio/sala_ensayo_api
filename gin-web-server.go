@@ -7,28 +7,26 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// album represents data about a record album.
-type persona struct {
+type Persona struct {
 	ID       int    `json:"id"`
-	Nombre   string `json:"nombre"`
+	Nombre   string `json:"nombre" binding:"required"`
 	Apellido string `json:"apellido"`
 	Telefono int    `json:"telefono"`
 }
 
-type sala struct {
+type Sala struct {
 	ID         int     `json:"id"`
-	Nombre     string  `json:"nombre"`
-	PrecioHora float32 `json:"precioHora"`
+	Nombre     string  `json:"nombre" binding:"required"`
+	PrecioHora float32 `json:"precioHora" binding:"required"`
 }
 
-// personas slice to seed record album data.
-var personas = []persona{
+var personas = []Persona{
 	{ID: 1, Nombre: "Tom", Apellido: "Morello", Telefono: 2615897845},
 	{ID: 2, Nombre: "Jimmy", Apellido: "Hendrix", Telefono: 2616897433},
 	{ID: 3, Nombre: "Steve", Apellido: "Vai", Telefono: 2615879878},
 }
 
-var salas = []sala{
+var salas = []Sala{
 	{ID: 1, Nombre: "Prodan", PrecioHora: 300.00},
 	{ID: 2, Nombre: "Cerati", PrecioHora: 500.75},
 	{ID: 3, Nombre: "Marley", PrecioHora: 255.50},
@@ -46,43 +44,37 @@ func main() {
 	router.Run("localhost:8080")
 }
 
-// getPersonas responds with the list of all personas as JSON.
 func getPersonas(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, personas)
 }
 
-// postPersonas adds an album from JSON received in the request body.
 func postPersonas(c *gin.Context) {
-	var newPersona persona
-
-	// Call BindJSON to bind the received JSON to
-	// newAlbum.
+	var newPersona Persona
 	if err := c.BindJSON(&newPersona); err != nil {
-		return
+		// c.AbortWithStatusJSON(http.StatusBadRequest,
+		// 	gin.H{
+		// 		"error": "VALIDATEERR-1",
+		// 		"message": "Invalid inputs. Please check your inputs"})
+		// 	return
+		c.AbortWithError(http.StatusBadRequest, err)
 	}
 
-	// Add the new album to the slice.
 	personas = append(personas, newPersona)
 	c.IndentedJSON(http.StatusCreated, newPersona)
 }
 
-// getPersonasById locates the album whose ID value matches the id
-// parameter sent by the client, then returns that album as a response.
 func getPersonasById(c *gin.Context) {
 	id := c.Param("id")
 	id2, err := strconv.Atoi(id)
-	// Loop through the list of personas, looking for
-	// an album whose ID value matches the parameter.
 	if err != nil {
 		for _, a := range personas {
 			if a.ID == id2 {
 				c.IndentedJSON(http.StatusOK, a)
-				return
 			}
 		}
 	}
 
-	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "persona not found"})
+	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Persona not found"})
 }
 
 func getSalas(c *gin.Context) {
@@ -90,18 +82,10 @@ func getSalas(c *gin.Context) {
 }
 
 func postSalas(c *gin.Context) {
-	var newSala sala
-
-	// Call BindJSON to bind the received JSON to
-	// newAlbum.
+	var newSala Sala
 	if err := c.BindJSON(&newSala); err != nil {
-		println(err)
-		return
+		c.AbortWithError(http.StatusBadRequest, err)
 	}
-
-	// Add the new album to the slice.
-	// newSala.PrecioHora = strconv.ParseFloat(newSala.PrecioHora, 32)
-	// strconv.ParseFloat(newSala.PrecioHora, 64)
 	salas = append(salas, newSala)
 	c.IndentedJSON(http.StatusCreated, newSala)
 }
