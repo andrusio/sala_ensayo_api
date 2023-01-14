@@ -35,11 +35,11 @@ var salas = []Sala{
 func main() {
 	router := gin.Default()
 	router.GET("/personas", getPersonas)
-	router.GET("/personas/:id", getPersonasById)
-	router.POST("/personas", postPersonas)
+	router.GET("/persona/:id", getPersonaById)
+	router.POST("/persona", postPersona)
 
 	router.GET("/salas", getSalas)
-	router.POST("/salas", postSalas)
+	router.POST("/sala", postSala)
 
 	router.Run("localhost:8080")
 }
@@ -48,7 +48,7 @@ func getPersonas(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, personas)
 }
 
-func postPersonas(c *gin.Context) {
+func postPersona(c *gin.Context) {
 	var newPersona Persona
 	if err := c.BindJSON(&newPersona); err != nil {
 		// c.AbortWithStatusJSON(http.StatusBadRequest,
@@ -63,7 +63,7 @@ func postPersonas(c *gin.Context) {
 	c.IndentedJSON(http.StatusCreated, newPersona)
 }
 
-func getPersonasById(c *gin.Context) {
+func getPersonaById(c *gin.Context) {
 	id := c.Param("id")
 	id2, err := strconv.Atoi(id)
 	if err != nil {
@@ -81,7 +81,7 @@ func getSalas(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, salas)
 }
 
-func postSalas(c *gin.Context) {
+func postSala(c *gin.Context) {
 	var newSala Sala
 	if err := c.BindJSON(&newSala); err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
