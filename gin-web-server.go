@@ -7,6 +7,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func main() {
+	router := gin.Default()
+	router.GET("/personas", getPersonas)
+	router.GET("/persona/:id", getPersonaById)
+	router.POST("/persona", postPersona)
+
+	router.GET("/salas", getSalas)
+	router.POST("/sala", postSala)
+
+	router.GET("/grupos", getGrupos)
+	router.GET("/grupo/:id", getGrupoById)
+	router.POST("/grupo", postGrupo)
+
+	router.Run("localhost:8080")
+}
+
 type Persona struct {
 	ID       int    `json:"id"`
 	Nombre   string `json:"nombre" binding:"required"`
@@ -18,6 +34,12 @@ type Sala struct {
 	ID         int     `json:"id"`
 	Nombre     string  `json:"nombre" binding:"required"`
 	PrecioHora float32 `json:"precioHora" binding:"required"`
+}
+
+type Grupo struct {
+	ID       int    `json:"id"`
+	Nombre   string `json:"nombre" binding:"required"`
+	Personas []Persona
 }
 
 var personas = []Persona{
@@ -32,16 +54,10 @@ var salas = []Sala{
 	{ID: 3, Nombre: "Marley", PrecioHora: 255.50},
 }
 
-func main() {
-	router := gin.Default()
-	router.GET("/personas", getPersonas)
-	router.GET("/persona/:id", getPersonaById)
-	router.POST("/persona", postPersona)
-
-	router.GET("/salas", getSalas)
-	router.POST("/sala", postSala)
-
-	router.Run("localhost:8080")
+var Grupos = []Grupo{
+	{ID: 1, Nombre: "Soda Stereo", Personas: []Persona{{ID: 1, Nombre: "Tom Morello", Telefono: 2615897845}}},
+	{ID: 2, Nombre: "Audioslave"},
+	{ID: 3, Nombre: "Massacre", Personas: []Persona{{ID: 2, Nombre: "Jimmy", Apellido: "Hendrix", Telefono: 2616897433}, {ID: 3, Nombre: "Steve", Apellido: "Vai", Telefono: 2615879878}}},
 }
 
 func getPersonas(c *gin.Context) {
@@ -88,4 +104,37 @@ func postSala(c *gin.Context) {
 	}
 	salas = append(salas, newSala)
 	c.IndentedJSON(http.StatusCreated, newSala)
+}
+
+func getGrupos(c *gin.Context) {
+	c.IndentedJSON(http.StatusOK, Grupos)
+}
+
+func postGrupo(c *gin.Context) {
+	var newGrupo Grupo
+	if err := c.BindJSON(&newGrupo); err != nil {
+		// c.AbortWithStatusJSON(http.StatusBadRequest,
+		// 	gin.H{
+		// 		"error": "VALIDATEERR-1",
+		// 		"message": "Invalid inputs. Please check your inputs"})
+		// 	return
+		c.AbortWithError(http.StatusBadRequest, err)
+	}
+
+	Grupos = append(Grupos, newGrupo)
+	c.IndentedJSON(http.StatusCreated, newGrupo)
+}
+
+func getGrupoById(c *gin.Context) {
+	id := c.Param("id")
+	id2, err := strconv.Atoi(id)
+	if err != nil {
+		for _, a := range Grupos {
+			if a.ID == id2 {
+				c.IndentedJSON(http.StatusOK, a)
+			}
+		}
+	}
+
+	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Grupo not found"})
 }
