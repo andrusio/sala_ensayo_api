@@ -37,9 +37,9 @@ type Sala struct {
 }
 
 type Grupo struct {
-	ID       int    `json:"id"`
-	Nombre   string `json:"nombre" binding:"required"`
-	Personas []Persona
+	ID       int       `json:"id"`
+	Nombre   string    `json:"nombre" binding:"required"`
+	Personas []Persona `json:"personas"`
 }
 
 var personas = []Persona{
@@ -55,8 +55,8 @@ var salas = []Sala{
 }
 
 var Grupos = []Grupo{
-	{ID: 1, Nombre: "Soda Stereo", Personas: []Persona{{ID: 1, Nombre: "Tom Morello", Telefono: 2615897845}}},
-	{ID: 2, Nombre: "Audioslave"},
+	{ID: 1, Nombre: "Soda Stereo", Personas: []Persona{{ID: 1, Nombre: "Tom", Apellido: "Morello", Telefono: 2615897845}}},
+	{ID: 2, Nombre: "Audioslave", Personas: []Persona{{ID: 1, Nombre: "Tom", Apellido: "Morello", Telefono: 2615897845}}},
 	{ID: 3, Nombre: "Massacre", Personas: []Persona{{ID: 2, Nombre: "Jimmy", Apellido: "Hendrix", Telefono: 2616897433}, {ID: 3, Nombre: "Steve", Apellido: "Vai", Telefono: 2615879878}}},
 }
 
