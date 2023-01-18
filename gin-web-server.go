@@ -7,6 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// https://blog.techchee.com/build-a-rest-api-with-golang-gin-and-mysql/
+
 func main() {
 	router := gin.Default()
 	router.GET("/personas", getPersonas)
@@ -19,6 +21,8 @@ func main() {
 	router.GET("/grupos", getGrupos)
 	router.GET("/grupo/:id", getGrupoById)
 	router.POST("/grupo", postGrupo)
+
+	router.POST("/grupo/agregar_integrante/:id/:id", postGrupoIntegrante)
 
 	router.Run("localhost:8080")
 }
@@ -137,4 +141,20 @@ func getGrupoById(c *gin.Context) {
 	}
 
 	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Grupo not found"})
+}
+
+// NO FUNCIONAL
+func postGrupoIntegrante(c *gin.Context) {
+	var newGrupo Grupo
+	if err := c.BindJSON(&newGrupo); err != nil {
+		// c.AbortWithStatusJSON(http.StatusBadRequest,
+		// 	gin.H{
+		// 		"error": "VALIDATEERR-1",
+		// 		"message": "Invalid inputs. Please check your inputs"})
+		// 	return
+		c.AbortWithError(http.StatusBadRequest, err)
+	}
+
+	Grupos = append(Grupos, newGrupo)
+	c.IndentedJSON(http.StatusCreated, newGrupo)
 }
