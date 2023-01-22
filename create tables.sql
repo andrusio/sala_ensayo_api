@@ -12,6 +12,7 @@ CREATE TABLE sala (
 id int(10) unsigned not null auto_increment,
 nombre varchar(20) NOT NULL,
 precio float NOT NULL,
+color varchar(20) NOT NULL,
 PRIMARY KEY (id)
 );
 
