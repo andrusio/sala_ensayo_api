@@ -28,21 +28,3 @@ func main() {
 
 	router.Run("localhost:8080")
 }
-
-// var personas = []Persona{
-// 	{ID: 1, Nombre: "Tom", Apellido: "Morello", Telefono: "2615897845"},
-// 	{ID: 2, Nombre: "Jimmy", Apellido: "Hendrix", Telefono: "2616897433"},
-// 	{ID: 3, Nombre: "Steve", Apellido: "Vai", Telefono: "2615879878"},
-// }
-
-// var salas = []Sala{
-// 	{ID: 1, Nombre: "Prodan", Precio: 300.00},
-// 	{ID: 2, Nombre: "Cerati", Precio: 500.75},
-// 	{ID: 3, Nombre: "Marley", Precio: 255.50},
-// }
-
-// var Grupos = []Grupo{
-// 	{ID: 1, Nombre: "Soda Stereo", Personas: []Persona{{ID: 1, Nombre: "Tom", Apellido: "Morello", Telefono: "2615897845"}}},
-// 	{ID: 2, Nombre: "Audioslave", Personas: []Persona{{ID: 1, Nombre: "Tom", Apellido: "Morello", Telefono: "2615897845"}}},
-// 	{ID: 3, Nombre: "Massacre", Personas: []Persona{{ID: 2, Nombre: "Jimmy", Apellido: "Hendrix", Telefono: "2616897433"}, {ID: 3, Nombre: "Steve", Apellido: "Vai", Telefono: "2615879878"}}},
-// }

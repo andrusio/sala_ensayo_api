@@ -1,10 +1,10 @@
 package controllers
 
 import (
-	"fmt"
+	"database/sql"
+	"log"
 	"net/http"
-	. "sala_ensayo/server/database"
-	"strconv"
+	sqldb "sala_ensayo/server/database"
 
 	"github.com/gin-gonic/gin"
 )
@@ -16,7 +16,14 @@ type Grupo struct {
 }
 
 func GetGrupos(c *gin.Context) {
-	results := GetConsulta("SELECT * FROM grupo")
+	db := sqldb.ConnectDB()
+	results, err := db.Query(`SELECT id, nombre FROM grupo`)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.AbortWithStatus(204)
+			return
+		}
+	}
 
 	grupos := []Grupo{}
 	for results.Next() {
@@ -36,42 +43,56 @@ func PostGrupo(c *gin.Context) {
 	if err := c.BindJSON(&newGrupo); err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
 	}
-	sqlstm := fmt.Sprintf("INSERT INTO grupo (nombre)"+
-		" VALUES ('%s')",
-		newGrupo.Nombre)
-	GetConsulta(sqlstm)
 
+	db := sqldb.ConnectDB()
+	stmt, err := db.Prepare(`INSERT INTO grupo (nombre) VALUES (?)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	res, err := stmt.Exec(newGrupo.Nombre)
+	id, err := res.LastInsertId()
+	newGrupo.ID = int(id)
+	if err != nil {
+		log.Fatalf("Error al agregar grupo: %s", err)
+	}
 	c.IndentedJSON(http.StatusCreated, newGrupo)
 }
 
 func GetPersonasGrupoById(c *gin.Context) {
 	id := c.Param("id")
-	idInt, err := strconv.Atoi(id)
 
-	sqlstm := fmt.Sprintf("SELECT * FROM grupo"+
-		" WHERE id = '%d'",
-		idInt)
-	result := GetConsulta(sqlstm)
+	db := sqldb.ConnectDB()
+	stmt, err := db.Prepare(`SELECT id, nombre FROM grupo WHERE id = ?`)
+
+	result_grupo, err := stmt.Query(&id)
 
 	var grupo Grupo
-	for result.Next() {
-		err = result.Scan(&grupo.ID, &grupo.Nombre)
+	for result_grupo.Next() {
+		err = result_grupo.Scan(&grupo.ID, &grupo.Nombre)
 		if err != nil {
 			panic("Error al validar datos" + err.Error())
 		}
 	}
 
-	sqlstm2 := fmt.Sprintf("SELECT p.id, p.nombre, p.apellido, p.telefono "+
-		"FROM persona_grupo pg "+
-		"JOIN persona p on pg.persona_id = p.id "+
-		"WHERE grupo_id = '%d'", idInt)
-	results := GetConsulta(sqlstm2)
+	stmt2, err := db.Prepare(`SELECT p.id, p.nombre, p.apellido, p.telefono 
+		FROM persona_grupo pg
+		JOIN persona p on pg.persona_id = p.id 
+		WHERE grupo_id = ?`)
+
+	result_personas, err := stmt2.Query(&id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.AbortWithStatus(204)
+			return
+		}
+	}
 
 	personas := []Persona{}
-	for results.Next() {
+	for result_personas.Next() {
 		var persona Persona
 		var err error
-		err = results.Scan(&persona.ID, &persona.Nombre, &persona.Apellido, &persona.Telefono)
+		err = result_personas.Scan(&persona.ID, &persona.Nombre, &persona.Apellido, &persona.Telefono)
 		if err != nil {
 			panic("Error al validar datos" + err.Error())
 		}
@@ -85,19 +106,25 @@ func GetPersonasGrupoById(c *gin.Context) {
 
 func PostPersonaGrupo(c *gin.Context) {
 	idGrupo := c.Param("grupo_id")
-	grupo_id, err := strconv.Atoi(idGrupo)
+	// grupo_id, err := strconv.Atoi(idGrupo)
 
 	idPersona := c.Param("persona_id")
-	persona_id, err := strconv.Atoi(idPersona)
+	// persona_id, err := strconv.Atoi(idPersona)
 
+	// if err != nil {
+	// 	c.AbortWithError(http.StatusBadRequest, err)
+	// }
+	db := sqldb.ConnectDB()
+	stmt, err := db.Prepare(`INSERT INTO persona_grupo (grupo_id, persona_id) VALUES (?,?)`)
 	if err != nil {
-		c.AbortWithError(http.StatusBadRequest, err)
+		log.Fatal(err)
 	}
 
-	sqlstm := fmt.Sprintf("INSERT INTO persona_grupo (grupo_id, persona_id)"+
-		" VALUES ('%d','%d')",
-		grupo_id, persona_id)
+	res, err := stmt.Exec(idGrupo, idPersona)
+	_ = res
+	if err != nil {
+		log.Fatalf("Error al agregar persona: %s", err)
+	}
 
-	GetConsulta(sqlstm)
 	c.String(http.StatusCreated, "Integrante agregado con exito")
 }

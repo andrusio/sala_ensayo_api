@@ -1,12 +1,10 @@
-package config
+package sqldb
 
 import (
 	"database/sql"
-	"fmt"
 	"io/ioutil"
 	"log"
 
-	_ "github.com/go-sql-driver/mysql"
 	"gopkg.in/yaml.v3"
 )
 
@@ -31,20 +29,15 @@ func (conf *DatabaseConfig) getDBConf() *DatabaseConfig {
 	return conf
 }
 
-func GetConsulta(sqlstm string) sql.Rows {
+func ConnectDB() *sql.DB {
+
 	var conf DatabaseConfig
 	conf.getDBConf()
 
 	db, err := sql.Open("mysql", conf.DBUser+":"+conf.DBPassword+"@tcp("+conf.DBHost+")/"+conf.DBName)
 	if err != nil {
-		fmt.Println("Error al conectar con la base de datos", err.Error())
+		panic(err.Error())
 	}
 
-	defer db.Close()
-	results, err := db.Query(sqlstm)
-	if err != nil {
-		fmt.Println("Error al realizar consulta", err.Error())
-	}
-
-	return *results
+	return db
 }

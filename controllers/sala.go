@@ -1,9 +1,10 @@
 package controllers
 
 import (
-	"fmt"
+	"database/sql"
+	"log"
 	"net/http"
-	. "sala_ensayo/server/database"
+	sqldb "sala_ensayo/server/database"
 
 	"github.com/gin-gonic/gin"
 )
@@ -25,7 +26,14 @@ type SalaGrupo struct {
 }
 
 func GetSalas(c *gin.Context) {
-	results := GetConsulta("SELECT * FROM sala")
+	db := sqldb.ConnectDB()
+	results, err := db.Query("SELECT id, nombre, precio, color FROM sala")
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.AbortWithStatus(204)
+			return
+		}
+	}
 
 	salas := []Sala{}
 	for results.Next() {
@@ -45,28 +53,50 @@ func PostSala(c *gin.Context) {
 	if err := c.BindJSON(&newSala); err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
 	}
-	sqlstm := fmt.Sprintf("INSERT INTO sala (nombre, precio, color)"+
-		" VALUES ('%s','%g', '%d')",
-		newSala.Nombre, newSala.Precio, newSala.Color)
-	GetConsulta(sqlstm)
+
+	db := sqldb.ConnectDB()
+	stmt, err := db.Prepare(`INSERT INTO sala (nombre, precio, color) VALUES (?,?,?)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	res, err := stmt.Exec(newSala.Nombre, newSala.Precio, newSala.Color)
+	if err != nil {
+		log.Fatalf("Error al agregar sala: %s", err)
+	}
+	id, err := res.LastInsertId()
+	newSala.ID = int(id)
 
 	c.IndentedJSON(http.StatusCreated, newSala)
 }
 
 func GetSalaGrupo(c *gin.Context) {
 	fecha := c.Query("fecha")
-	sqlstm := fmt.Sprintf("SELECT sg.id, s.nombre sala, s.color sala_color, g.nombre grupo, sg.hora_desde, sg.hora_hasta FROM sala_grupo sg "+
-		"JOIN sala s ON sg.sala_id = s.id "+
-		"JOIN grupo g ON sg.grupo_id = g.id "+
-		"WHERE hora_desde BETWEEN '%s 00:00:00' AND '%s 23:59:59'", fecha, fecha)
+	print(fecha)
 
-	results := GetConsulta(sqlstm)
+	db := sqldb.ConnectDB()
+	stmt, err := db.Prepare(`SELECT sg.id, s.nombre sala, s.color sala_color, g.nombre grupo, sg.hora_desde, sg.hora_hasta 
+		FROM sala_grupo sg 
+		JOIN sala s ON sg.sala_id = s.id 
+		JOIN grupo g ON sg.grupo_id = g.id
+		WHERE hora_desde BETWEEN ? AND ?`)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	result, err := stmt.Query(fecha+" 00:00:00", fecha+" 23:59:59")
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.AbortWithStatus(204)
+			return
+		}
+		log.Fatal(err)
+	}
 
 	grupos := []SalaGrupo{}
-	for results.Next() {
+	for result.Next() {
 		var salaGrupo SalaGrupo
 		var err error
-		err = results.Scan(&salaGrupo.ID, &salaGrupo.Sala, &salaGrupo.SalaColor, &salaGrupo.Grupo, &salaGrupo.HoraDesde, &salaGrupo.HoraHasta)
+		err = result.Scan(&salaGrupo.ID, &salaGrupo.Sala, &salaGrupo.SalaColor, &salaGrupo.Grupo, &salaGrupo.HoraDesde, &salaGrupo.HoraHasta)
 		if err != nil {
 			panic("Error al validar datos " + err.Error())
 		}

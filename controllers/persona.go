@@ -1,9 +1,10 @@
 package controllers
 
 import (
-	"fmt"
+	"database/sql"
+	"log"
 	"net/http"
-	. "sala_ensayo/server/database"
+	sqldb "sala_ensayo/server/database"
 
 	"github.com/gin-gonic/gin"
 )
@@ -16,7 +17,15 @@ type Persona struct {
 }
 
 func GetPersonas(c *gin.Context) {
-	results := GetConsulta("SELECT * FROM persona")
+	db := sqldb.ConnectDB()
+	results, err := db.Query("SELECT id, nombre, apellido, telefono FROM persona")
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.AbortWithStatus(204)
+			return
+		}
+	}
+
 	personas := []Persona{}
 	for results.Next() {
 		var persona Persona
@@ -37,10 +46,18 @@ func PostPersona(c *gin.Context) {
 		c.AbortWithError(http.StatusBadRequest, err)
 	}
 
-	sqlstm := fmt.Sprintf("INSERT INTO persona (nombre, apellido, telefono)"+
-		" VALUES ('%s','%s','%s')",
-		newPersona.Nombre, newPersona.Apellido, newPersona.Telefono)
-	GetConsulta(sqlstm)
+	db := sqldb.ConnectDB()
+	stmt, err := db.Prepare(`INSERT INTO persona (nombre, apellido, telefono) VALUES (?,?,?)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	res, err := stmt.Exec(newPersona.Nombre, newPersona.Apellido, newPersona.Telefono)
+	id, err := res.LastInsertId()
+	newPersona.ID = int(id)
+	if err != nil {
+		log.Fatalf("Error al agregar persona: %s", err)
+	}
 
 	c.IndentedJSON(http.StatusCreated, newPersona)
 }
