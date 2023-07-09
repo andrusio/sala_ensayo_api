@@ -16,11 +16,19 @@ type Sala struct {
 	Color  int     `json:"color" binding:"required"`
 }
 
-type SalaGrupo struct {
+type SalaGrupoAgenda struct {
 	ID        int    `json:"id"`
 	Sala      string `json:"sala" binding:"required"`
 	SalaColor int    `json:"sala_color" binding:"required"`
 	Grupo     string `json:"grupo" binding:"required"`
+	HoraDesde string `json:"hora_desde" binding:"required"`
+	HoraHasta string `json:"hora_hasta" binding:"required"`
+}
+
+type SalaGrupo struct {
+	ID        int    `json:"id"`
+	GrupoId   int    `json:"grupo_id" binding:"required"`
+	SalaId    int    `json:"sala_id" binding:"required"`
 	HoraDesde string `json:"hora_desde" binding:"required"`
 	HoraHasta string `json:"hora_hasta" binding:"required"`
 }
@@ -92,9 +100,9 @@ func GetSalaGrupo(c *gin.Context) {
 		log.Fatal(err)
 	}
 
-	grupos := []SalaGrupo{}
+	grupos := []SalaGrupoAgenda{}
 	for result.Next() {
-		var salaGrupo SalaGrupo
+		var salaGrupo SalaGrupoAgenda
 		var err error
 		err = result.Scan(&salaGrupo.ID, &salaGrupo.Sala, &salaGrupo.SalaColor, &salaGrupo.Grupo, &salaGrupo.HoraDesde, &salaGrupo.HoraHasta)
 		if err != nil {
@@ -103,4 +111,27 @@ func GetSalaGrupo(c *gin.Context) {
 		grupos = append(grupos, salaGrupo)
 	}
 	c.IndentedJSON(http.StatusOK, grupos)
+}
+
+func PostSalaGrupo(c *gin.Context) {
+	var newSalaGrupo SalaGrupo
+
+	if err := c.BindJSON(&newSalaGrupo); err != nil {
+		c.AbortWithError(http.StatusBadRequest, err)
+	}
+
+	db := sqldb.ConnectDB()
+	stmt, err := db.Prepare(`INSERT INTO sala_grupo (grupo_id, sala_id, hora_desde, hora_hasta) VALUES (?,?,?,?)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	res, err := stmt.Exec(newSalaGrupo.GrupoId, newSalaGrupo.SalaId, newSalaGrupo.HoraDesde, newSalaGrupo.HoraHasta)
+	id, err := res.LastInsertId()
+	newSalaGrupo.ID = int(id)
+	if err != nil {
+		log.Fatalf("Error al agregar Turno: %s", err)
+	}
+
+	c.String(http.StatusCreated, "Turno agregado con exito")
 }

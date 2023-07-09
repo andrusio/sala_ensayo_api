@@ -19,6 +19,7 @@ func main() {
 	router.GET("/salas", GetSalas)
 	router.POST("/sala", PostSala)
 	router.GET("/sala_grupo", GetSalaGrupo)
+	router.POST("/sala_grupo", PostSalaGrupo)
 
 	router.GET("/grupos", GetGrupos)
 	router.POST("/grupo", PostGrupo)
