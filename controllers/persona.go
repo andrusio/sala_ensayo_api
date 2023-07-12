@@ -56,8 +56,42 @@ func PostPersona(c *gin.Context) {
 	id, err := res.LastInsertId()
 	newPersona.ID = int(id)
 	if err != nil {
-		log.Fatalf("Error al agregar persona: %s", err)
+		c.String(http.StatusBadRequest, "Error al agregar persona: %s", err.Error())
+		return
 	}
 
 	c.IndentedJSON(http.StatusCreated, newPersona)
+}
+
+func PutPersona(c *gin.Context) {
+	var newPersona Persona
+	if err := c.BindJSON(&newPersona); err != nil {
+		c.AbortWithError(http.StatusBadRequest, err)
+	}
+
+	db := sqldb.ConnectDB()
+	stmt, err := db.Prepare(`UPDATE persona SET nombre = ?, apellido = ?, telefono = ? WHERE id = ?`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	res, err := stmt.Exec(newPersona.Nombre, newPersona.Apellido, newPersona.Telefono, newPersona.ID)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Error al actualizar persona: %s", err.Error())
+		return
+	}
+	id, err := res.LastInsertId()
+	newPersona.ID = int(id)
+
+	c.IndentedJSON(http.StatusOK, newPersona)
+}
+
+func DeletePersona(c *gin.Context) {
+	id := c.Param("id")
+	db := sqldb.ConnectDB()
+	_, err := db.Exec(`DELETE FROM persona WHERE id = ?`, id)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Error al eliminar persona: %s", err.Error())
+		return
+	}
+	c.IndentedJSON(http.StatusOK, "Persona eliminada con éxito")
 }

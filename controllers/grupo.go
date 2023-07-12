@@ -59,6 +59,37 @@ func PostGrupo(c *gin.Context) {
 	c.IndentedJSON(http.StatusCreated, newGrupo)
 }
 
+func PutGrupo(c *gin.Context) {
+	var newGrupo Grupo
+	if err := c.BindJSON(&newGrupo); err != nil {
+		c.AbortWithError(http.StatusBadRequest, err)
+	}
+
+	db := sqldb.ConnectDB()
+	stmt, err := db.Prepare(`UPDATE grupo SET nombre = ? WHERE id = ?`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = stmt.Exec(newGrupo.Nombre, newGrupo.ID)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Error al actualizar grupo: %s", err.Error())
+		return
+	}
+
+	c.IndentedJSON(http.StatusOK, newGrupo)
+}
+
+func DeleteGrupo(c *gin.Context) {
+	id := c.Param("id")
+	db := sqldb.ConnectDB()
+	_, err := db.Exec(`DELETE FROM grupo WHERE id = ?`, id)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Error al eliminar grupo: %s", err.Error())
+		return
+	}
+	c.IndentedJSON(http.StatusOK, "Grupo eliminado con éxito")
+}
+
 func GetPersonasGrupoById(c *gin.Context) {
 	id := c.Param("id")
 

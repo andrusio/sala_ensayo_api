@@ -16,23 +16,6 @@ type Sala struct {
 	Color  int     `json:"color" binding:"required"`
 }
 
-type SalaGrupoAgenda struct {
-	ID        int    `json:"id"`
-	Sala      string `json:"sala" binding:"required"`
-	SalaColor int    `json:"sala_color" binding:"required"`
-	Grupo     string `json:"grupo" binding:"required"`
-	HoraDesde string `json:"hora_desde" binding:"required"`
-	HoraHasta string `json:"hora_hasta" binding:"required"`
-}
-
-type SalaGrupo struct {
-	ID        int    `json:"id"`
-	GrupoId   int    `json:"grupo_id" binding:"required"`
-	SalaId    int    `json:"sala_id" binding:"required"`
-	HoraDesde string `json:"hora_desde" binding:"required"`
-	HoraHasta string `json:"hora_hasta" binding:"required"`
-}
-
 func GetSalas(c *gin.Context) {
 	db := sqldb.ConnectDB()
 	results, err := db.Query("SELECT id, nombre, precio, color FROM sala")
@@ -49,7 +32,8 @@ func GetSalas(c *gin.Context) {
 		var err error
 		err = results.Scan(&sala.ID, &sala.Nombre, &sala.Precio, &sala.Color)
 		if err != nil {
-			panic("Error al validar datos" + err.Error())
+			c.String(http.StatusBadRequest, "Error al validar datos: %s", err.Error())
+			return
 		}
 		salas = append(salas, sala)
 	}
@@ -77,61 +61,35 @@ func PostSala(c *gin.Context) {
 	c.IndentedJSON(http.StatusCreated, newSala)
 }
 
-func GetSalaGrupo(c *gin.Context) {
-	fecha := c.Query("fecha")
-	print(fecha)
-
-	db := sqldb.ConnectDB()
-	stmt, err := db.Prepare(`SELECT sg.id, s.nombre sala, s.color sala_color, g.nombre grupo, sg.hora_desde, sg.hora_hasta 
-		FROM sala_grupo sg 
-		JOIN sala s ON sg.sala_id = s.id 
-		JOIN grupo g ON sg.grupo_id = g.id
-		WHERE hora_desde BETWEEN ? AND ?`)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	result, err := stmt.Query(fecha+" 00:00:00", fecha+" 23:59:59")
-	if err != nil {
-		if err == sql.ErrNoRows {
-			c.AbortWithStatus(204)
-			return
-		}
-		log.Fatal(err)
-	}
-
-	grupos := []SalaGrupoAgenda{}
-	for result.Next() {
-		var salaGrupo SalaGrupoAgenda
-		var err error
-		err = result.Scan(&salaGrupo.ID, &salaGrupo.Sala, &salaGrupo.SalaColor, &salaGrupo.Grupo, &salaGrupo.HoraDesde, &salaGrupo.HoraHasta)
-		if err != nil {
-			panic("Error al validar datos " + err.Error())
-		}
-		grupos = append(grupos, salaGrupo)
-	}
-	c.IndentedJSON(http.StatusOK, grupos)
-}
-
-func PostSalaGrupo(c *gin.Context) {
-	var newSalaGrupo SalaGrupo
-
-	if err := c.BindJSON(&newSalaGrupo); err != nil {
+func PutSala(c *gin.Context) {
+	var newSala Sala
+	if err := c.BindJSON(&newSala); err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
 	}
 
 	db := sqldb.ConnectDB()
-	stmt, err := db.Prepare(`INSERT INTO sala_grupo (grupo_id, sala_id, hora_desde, hora_hasta) VALUES (?,?,?,?)`)
+	stmt, err := db.Prepare(`UPDATE sala SET nombre = ?, precio = ?, color = ? WHERE id = ?`)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	res, err := stmt.Exec(newSalaGrupo.GrupoId, newSalaGrupo.SalaId, newSalaGrupo.HoraDesde, newSalaGrupo.HoraHasta)
-	id, err := res.LastInsertId()
-	newSalaGrupo.ID = int(id)
+	res, err := stmt.Exec(newSala.Nombre, newSala.Precio, newSala.Color, newSala.ID)
 	if err != nil {
-		log.Fatalf("Error al agregar Turno: %s", err)
+		c.String(http.StatusBadRequest, "Error al actualizar sala: %s", err.Error())
+		return
 	}
+	id, err := res.LastInsertId()
+	newSala.ID = int(id)
 
-	c.String(http.StatusCreated, "Turno agregado con exito")
+	c.IndentedJSON(http.StatusOK, newSala)
+}
+
+func DeleteSala(c *gin.Context) {
+	id := c.Param("id")
+	db := sqldb.ConnectDB()
+	_, err := db.Exec(`DELETE FROM sala WHERE id = ?`, id)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Error al eliminar sala: %s", err.Error())
+		return
+	}
+	c.IndentedJSON(http.StatusOK, "Sala eliminada con éxito")
 }

@@ -15,14 +15,21 @@ func main() {
 	router := gin.Default()
 	router.GET("/personas", GetPersonas)
 	router.POST("/persona", PostPersona)
+	router.PUT("/persona", PutPersona)
+	router.DELETE("/persona/:id", DeletePersona)
 
 	router.GET("/salas", GetSalas)
 	router.POST("/sala", PostSala)
-	router.GET("/sala_grupo", GetSalaGrupo)
-	router.POST("/sala_grupo", PostSalaGrupo)
+	router.PUT("/sala", PutSala)
+	router.DELETE("/sala/:id", DeleteSala)
 
 	router.GET("/grupos", GetGrupos)
 	router.POST("/grupo", PostGrupo)
+	router.PUT("/grupo", PutGrupo)
+	router.DELETE("/grupo/:id", DeleteGrupo)
+
+	router.GET("/sala_grupo", GetSalaGrupo)
+	router.POST("/sala_grupo", PostSalaGrupo)
 
 	router.GET("/persona_grupo/:id", GetPersonasGrupoById)
 	router.POST("/persona_grupo/:grupo_id/:persona_id", PostPersonaGrupo)
