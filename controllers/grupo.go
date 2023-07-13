@@ -2,15 +2,15 @@ package controllers
 
 import (
 	"database/sql"
-	"log"
 	"net/http"
 	sqldb "sala_ensayo/server/database"
+	"sala_ensayo/server/helpers"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Grupo struct {
-	ID       int       `json:"id"`
+	ID       int64     `json:"id"`
 	Nombre   string    `json:"nombre" binding:"required"`
 	Personas []Persona `json:"personas"`
 }
@@ -20,7 +20,7 @@ func GetGrupos(c *gin.Context) {
 	results, err := db.Query(`SELECT id, nombre FROM grupo`)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			c.AbortWithStatus(204)
+			c.JSON(http.StatusNoContent, gin.H{"error": "No hay grupos cargados"})
 			return
 		}
 	}
@@ -31,7 +31,9 @@ func GetGrupos(c *gin.Context) {
 		var err error
 		err = results.Scan(&grupo.ID, &grupo.Nombre)
 		if err != nil {
-			panic("Error al validar datos" + err.Error())
+			helpers.Error.Println(err.Error())
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "Error al validar datos: " + err.Error()})
+			return
 		}
 		grupos = append(grupos, grupo)
 	}
@@ -41,41 +43,49 @@ func GetGrupos(c *gin.Context) {
 func PostGrupo(c *gin.Context) {
 	var newGrupo Grupo
 	if err := c.BindJSON(&newGrupo); err != nil {
-		c.AbortWithError(http.StatusBadRequest, err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Datos no válidos: " + err.Error()})
+		return
 	}
 
 	db := sqldb.ConnectDB()
-	stmt, err := db.Prepare(`INSERT INTO grupo (nombre) VALUES (?)`)
+	res, err := db.Exec(`INSERT INTO grupo (nombre) VALUES (?)`, newGrupo.Nombre)
 	if err != nil {
-		log.Fatal(err)
+		helpers.Error.Println(err.Error())
+		c.JSON(http.StatusConflict, gin.H{"error": "Error al agregar Grupo: " + err.Error()})
+		return
 	}
-
-	res, err := stmt.Exec(newGrupo.Nombre)
 	id, err := res.LastInsertId()
-	newGrupo.ID = int(id)
 	if err != nil {
-		log.Fatalf("Error al agregar grupo: %s", err)
+		helpers.Error.Println(err.Error())
+		c.JSON(http.StatusConflict, gin.H{"error": "Error al agregar Grupo: " + err.Error()})
+		return
 	}
+	newGrupo.ID = id
 	c.IndentedJSON(http.StatusCreated, newGrupo)
 }
 
 func PutGrupo(c *gin.Context) {
 	var newGrupo Grupo
 	if err := c.BindJSON(&newGrupo); err != nil {
-		c.AbortWithError(http.StatusBadRequest, err)
-	}
-
-	db := sqldb.ConnectDB()
-	stmt, err := db.Prepare(`UPDATE grupo SET nombre = ? WHERE id = ?`)
-	if err != nil {
-		log.Fatal(err)
-	}
-	_, err = stmt.Exec(newGrupo.Nombre, newGrupo.ID)
-	if err != nil {
-		c.String(http.StatusBadRequest, "Error al actualizar grupo: %s", err.Error())
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Datos no válidos: " + err.Error()})
 		return
 	}
 
+	db := sqldb.ConnectDB()
+	res, err := db.Exec(`UPDATE grupo SET nombre = ? WHERE id = ?`, newGrupo.Nombre, newGrupo.ID)
+	if err != nil {
+		helpers.Error.Println(err.Error())
+		c.JSON(http.StatusConflict, gin.H{"error": "Error al modificar Grupo: " + err.Error()})
+		return
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		helpers.Error.Println(err.Error())
+		c.JSON(http.StatusConflict, gin.H{"error": "Error al modificar Grupo: " + err.Error()})
+		return
+	}
+
+	newGrupo.ID = id
 	c.IndentedJSON(http.StatusOK, newGrupo)
 }
 
@@ -84,7 +94,7 @@ func DeleteGrupo(c *gin.Context) {
 	db := sqldb.ConnectDB()
 	_, err := db.Exec(`DELETE FROM grupo WHERE id = ?`, id)
 	if err != nil {
-		c.String(http.StatusBadRequest, "Error al eliminar grupo: %s", err.Error())
+		c.JSON(http.StatusConflict, gin.H{"error": "Error al eliminar Grupo: " + err.Error()})
 		return
 	}
 	c.IndentedJSON(http.StatusOK, "Grupo eliminado con éxito")
@@ -94,38 +104,32 @@ func GetPersonasGrupoById(c *gin.Context) {
 	id := c.Param("id")
 
 	db := sqldb.ConnectDB()
-	stmt, err := db.Prepare(`SELECT id, nombre FROM grupo WHERE id = ?`)
-
-	result_grupo, err := stmt.Query(&id)
+	grupos, err := db.Query(`SELECT id, nombre FROM grupo WHERE id = ?`, &id)
 
 	var grupo Grupo
-	for result_grupo.Next() {
-		err = result_grupo.Scan(&grupo.ID, &grupo.Nombre)
+	for grupos.Next() {
+		err = grupos.Scan(&grupo.ID, &grupo.Nombre)
 		if err != nil {
-			panic("Error al validar datos" + err.Error())
-		}
-	}
-
-	stmt2, err := db.Prepare(`SELECT p.id, p.nombre, p.apellido, p.telefono 
-		FROM persona_grupo pg
-		JOIN persona p on pg.persona_id = p.id 
-		WHERE grupo_id = ?`)
-
-	result_personas, err := stmt2.Query(&id)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			c.AbortWithStatus(204)
+			helpers.Error.Println(err.Error())
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "Error al validar datos: " + err.Error()})
 			return
 		}
 	}
 
+	integrantes, err := db.Query(`SELECT p.id, p.nombre, p.apellido, p.telefono 
+		FROM persona_grupo pg
+		JOIN persona p on pg.persona_id = p.id 
+		WHERE grupo_id = ?`, &id)
+
 	personas := []Persona{}
-	for result_personas.Next() {
+	for integrantes.Next() {
 		var persona Persona
 		var err error
-		err = result_personas.Scan(&persona.ID, &persona.Nombre, &persona.Apellido, &persona.Telefono)
+		err = integrantes.Scan(&persona.ID, &persona.Nombre, &persona.Apellido, &persona.Telefono)
 		if err != nil {
-			panic("Error al validar datos" + err.Error())
+			helpers.Error.Println(err.Error())
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "Error al validar datos: " + err.Error()})
+			return
 		}
 		personas = append(personas, persona)
 	}
@@ -137,25 +141,29 @@ func GetPersonasGrupoById(c *gin.Context) {
 
 func PostPersonaGrupo(c *gin.Context) {
 	idGrupo := c.Param("grupo_id")
-	// grupo_id, err := strconv.Atoi(idGrupo)
+	// _, err := strconv.Atoi(idGrupo)
 
 	idPersona := c.Param("persona_id")
-	// persona_id, err := strconv.Atoi(idPersona)
+	// _, err := strconv.Atoi(idPersona)
 
 	// if err != nil {
 	// 	c.AbortWithError(http.StatusBadRequest, err)
 	// }
+
 	db := sqldb.ConnectDB()
-	stmt, err := db.Prepare(`INSERT INTO persona_grupo (grupo_id, persona_id) VALUES (?,?)`)
+	_, err := db.Exec(`INSERT INTO persona_grupo (grupo_id, persona_id) VALUES (?,?)`, idGrupo, idPersona)
 	if err != nil {
-		log.Fatal(err)
+		helpers.Error.Println(err.Error())
+		c.JSON(http.StatusConflict, gin.H{"error": "Error al agregar Integrante: " + err.Error()})
+		return
 	}
 
-	res, err := stmt.Exec(idGrupo, idPersona)
-	_ = res
-	if err != nil {
-		log.Fatalf("Error al agregar persona: %s", err)
-	}
+	// id, err := res.LastInsertId()
+	// if err != nil || id == 0 {
+	// 	helpers.Error.Println(err.Error())
+	// 	c.JSON(http.StatusConflict, gin.H{"error": "Error al agregar Integrante: " + err.Error()})
+	// 	return
+	// }
 
-	c.String(http.StatusCreated, "Integrante agregado con exito")
+	c.JSON(http.StatusCreated, gin.H{"status": "Integrante agregado con éxito"})
 }

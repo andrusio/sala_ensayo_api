@@ -12,6 +12,15 @@ import (
 // https://blog.logrocket.com/rest-api-golang-gin-gorm/
 
 func main() {
+
+	// Log General App
+	// gin.DisableConsoleColor()
+	// f, err := os.Create("log/gin.log")
+	// if err != nil {
+	// 	fmt.Println("Open Log File Failed", err)
+	// }
+	// gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
+
 	router := gin.Default()
 	router.GET("/personas", GetPersonas)
 	router.POST("/persona", PostPersona)

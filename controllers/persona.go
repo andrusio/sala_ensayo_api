@@ -2,15 +2,15 @@ package controllers
 
 import (
 	"database/sql"
-	"log"
 	"net/http"
 	sqldb "sala_ensayo/server/database"
+	"sala_ensayo/server/helpers"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Persona struct {
-	ID       int    `json:"id"`
+	ID       int64  `json:"id"`
 	Nombre   string `json:"nombre" binding:"required"`
 	Apellido string `json:"apellido"`
 	Telefono string `json:"telefono"`
@@ -21,7 +21,7 @@ func GetPersonas(c *gin.Context) {
 	results, err := db.Query("SELECT id, nombre, apellido, telefono FROM persona")
 	if err != nil {
 		if err == sql.ErrNoRows {
-			c.AbortWithStatus(204)
+			c.JSON(http.StatusNoContent, gin.H{"error": "No hay personas cargadas"})
 			return
 		}
 	}
@@ -32,7 +32,9 @@ func GetPersonas(c *gin.Context) {
 		var err error
 		err = results.Scan(&persona.ID, &persona.Nombre, &persona.Apellido, &persona.Telefono)
 		if err != nil {
-			panic(err.Error())
+			helpers.Error.Println(err.Error())
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "Error al validar datos: " + err.Error()})
+			return
 		}
 		personas = append(personas, persona)
 	}
@@ -43,23 +45,25 @@ func GetPersonas(c *gin.Context) {
 func PostPersona(c *gin.Context) {
 	var newPersona Persona
 	if err := c.BindJSON(&newPersona); err != nil {
-		c.AbortWithError(http.StatusBadRequest, err)
-	}
-
-	db := sqldb.ConnectDB()
-	stmt, err := db.Prepare(`INSERT INTO persona (nombre, apellido, telefono) VALUES (?,?,?)`)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	res, err := stmt.Exec(newPersona.Nombre, newPersona.Apellido, newPersona.Telefono)
-	id, err := res.LastInsertId()
-	newPersona.ID = int(id)
-	if err != nil {
-		c.String(http.StatusBadRequest, "Error al agregar persona: %s", err.Error())
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Datos no válidos: " + err.Error()})
 		return
 	}
 
+	db := sqldb.ConnectDB()
+	res, err := db.Exec(`INSERT INTO persona (nombre, apellido, telefono) VALUES (?,?,?)`, newPersona.Nombre, newPersona.Apellido, newPersona.Telefono)
+	if err != nil {
+		helpers.Error.Println(err.Error())
+		c.JSON(http.StatusConflict, gin.H{"error": "Error al agregar Persona: " + err.Error()})
+		return
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		helpers.Error.Println(err.Error())
+		c.JSON(http.StatusConflict, gin.H{"error": "Error al agregar Persona: " + err.Error()})
+		return
+	}
+	newPersona.ID = id
 	c.IndentedJSON(http.StatusCreated, newPersona)
 }
 
@@ -70,18 +74,21 @@ func PutPersona(c *gin.Context) {
 	}
 
 	db := sqldb.ConnectDB()
-	stmt, err := db.Prepare(`UPDATE persona SET nombre = ?, apellido = ?, telefono = ? WHERE id = ?`)
+	res, err := db.Exec(`UPDATE persona SET nombre = ?, apellido = ?, telefono = ? WHERE id = ?`, newPersona.Nombre, newPersona.Apellido, newPersona.Telefono, newPersona.ID)
 	if err != nil {
-		log.Fatal(err)
-	}
-	res, err := stmt.Exec(newPersona.Nombre, newPersona.Apellido, newPersona.Telefono, newPersona.ID)
-	if err != nil {
-		c.String(http.StatusBadRequest, "Error al actualizar persona: %s", err.Error())
+		helpers.Error.Println(err.Error())
+		c.JSON(http.StatusConflict, gin.H{"error": "Error al modificar Persona: " + err.Error()})
 		return
 	}
-	id, err := res.LastInsertId()
-	newPersona.ID = int(id)
 
+	id, err := res.LastInsertId()
+	if err != nil {
+		helpers.Error.Println(err.Error())
+		c.JSON(http.StatusConflict, gin.H{"error": "Error al modificar Persona: " + err.Error()})
+		return
+	}
+
+	newPersona.ID = id
 	c.IndentedJSON(http.StatusOK, newPersona)
 }
 
@@ -90,7 +97,7 @@ func DeletePersona(c *gin.Context) {
 	db := sqldb.ConnectDB()
 	_, err := db.Exec(`DELETE FROM persona WHERE id = ?`, id)
 	if err != nil {
-		c.String(http.StatusBadRequest, "Error al eliminar persona: %s", err.Error())
+		c.JSON(http.StatusConflict, gin.H{"error": "Error al eliminar Persona: " + err.Error()})
 		return
 	}
 	c.IndentedJSON(http.StatusOK, "Persona eliminada con éxito")
